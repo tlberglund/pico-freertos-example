@@ -2,7 +2,7 @@
 
 This is my [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) and [FreeRTOS](https://www.freertos.org/) example repo. There are many like it, but this one is mine.
 
-If you know something about FrerRTOS's board support packages, then it might interest you to know that this repo uses the `portable/ThirdParty/` options. These turn out to be reasonably straightforward to get running, if by straightforward you mean hours and hours of sifting through dependencies, wondering why the system tick isn't running, finding out heap allocations were causing the system to hang, calling down oaths on FreeRTOS, CMake, and microcontrollers generally, and crafting an unusually baroque list of include directories in the build file. I chased so many dead ends to get here, and now maybe you don't have to.
+If you know something about FreeRTOS's board support packages, then it might interest you to know that this repo uses the `portable/ThirdParty/` options. These turn out to be reasonably straightforward to get running, if by straightforward you mean hours and hours of sifting through dependencies, wondering why the system tick isn't running, finding out heap allocations were causing the system to hang, calling down oaths on FreeRTOS, CMake, and microcontrollers generally, and crafting an unusually baroque list of include directories in the build file. I chased so many dead ends to get here, and now maybe you don't have to.
 
 ## Required Tooling
 
