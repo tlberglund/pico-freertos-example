@@ -1,24 +1,24 @@
 
 #include <cstdio>
 #include "pico/stdlib.h"
+#include "pico_led.h"
 
 extern "C" {
-    #include "pico_led.h"
     #include "FreeRTOSConfig.h"
     #include "FreeRTOS.h"
     #include "task.h"
     #include "queue.h"
     #include "timers.h"
-
-    static void vSenderTask(void *pvParameters);
-    static void vReceiverTask(void *pvParameters);
-    static void vTimerCallback(TimerHandle_t xTimer);
-
-    static TimerHandle_t xTimer;
-    static QueueHandle_t xQueue;
-    static TaskHandle_t xSenderTask;
-    static TaskHandle_t xReceiverTask;
 }
+
+static void vSenderTask(void *pvParameters);
+static void vReceiverTask(void *pvParameters);
+static void vTimerCallback(TimerHandle_t xTimer);
+
+static TimerHandle_t xTimer;
+static QueueHandle_t xQueue;
+static TaskHandle_t xSenderTask;
+static TaskHandle_t xReceiverTask;
 
 typedef struct {
     uint32_t messageData;

@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+
+#
+# A command to drive the Raspberry Pi Debug Module. The script builds a temporary 
+# file containing the commands for the OpenOCD debugger, customizing it for the
+# version of the processor in use by the board, as indicated by the PICO_BOARD
+# variable in the CMakeLists.txt file in the main project directory.
+#
+# The script relies on the Pico SDK being installed, and the PICO_SDK_PATH 
+# environment variable being set to the path of the SDK.
+#
+# Usage:
+#
+#   debug reset - reset the processor and exit
+#   debug init  - initialize the debugger interface and exit; not exactly sure
+#                 what this is good for, but hey
+#   debug flash - writes the firmware image to the board and exits (see the
+#                 variable FIRMWARE_IMAGE_FILE in this script for the path to
+#                 the firmware image)
+#   debug ocd   - initialize the debugger interface and leave it running,
+#                 making the board ready to be connected-to by the VS Code
+#                 debugger or your the gdb client if you hate life
+#
+
+OPENOCD_CMD="$PICO_SDK_PATH/openocd/0.12.0+dev/openocd"
+OPENOCD_SCRIPTS=$PICO_SDK_PATH/openocd/0.12.0+dev/scripts
+FIRMWARE_IMAGE_FILE="build/freeRTOS_hello_world.elf"
+OPENOCD_CFG=""
+CMAKE_FILE="CMakeLists.txt"
+BOARD_TYPE=""
+
+
+# Check if the CMake file exists
+if [[ ! -f "$CMAKE_FILE" ]]; then
+    echo "Error: File '$CMAKE_FILE' not found."
+    exit 1
+fi
+
+# Extract the line with the PICO_BOARD definition
+PICO_BOARD_LINE=$(grep -E '^set\(PICO_BOARD' "$CMAKE_FILE")
+if [[ -z "$PICO_BOARD_LINE" ]]; then
+    echo "Error: PICO_BOARD not defined in '$CMAKE_FILE'."
+    exit 1
+fi
+
+# Awww yeah, sed
+PICO_BOARD_VALUE=$(echo "$PICO_BOARD_LINE" | sed -n 's/.*set(PICO_BOARD \([^ ]*\) .*/\1/p')
+
+#
+# Determine the board type from the CMakeLists.txt PICO_BOARD value
+#
+case "$PICO_BOARD_VALUE" in
+    pico_w)
+        BOARD_TYPE="rp2040"
+        ;;
+    pico2)
+        BOARD_TYPE="rp2350"
+        ;;
+    *)
+        echo "Error: Unknown PICO_BOARD value '$PICO_BOARD_VALUE'."
+        exit 1
+        ;;
+esac
+
+#
+# Figure out the core-specific configuration for the board
+#
+case $BOARD_TYPE in
+    "rp2040")
+        CORE_CONFIG=$(cat <<'EOF'
+rp2040.core0 configure -event examine-end {
+    rp2040.core0 arm sysresetreq
+    rp2040.core0 arp15 0x01000000
+}
+EOF
+        )
+        ;;
+
+    "rp2350")
+        # This is 100% untested right now, YOLO
+        CORE_CONFIG=$(cat <<'EOF'
+rp2350.core0 configure -event examine-end {
+    rp2350.core0 arm sysresetreq
+    rp2350.core0 arp15 0x01000000
+}
+EOF
+        )
+        ;;
+esac
+
+
+#
+# Actually parse the command-line argument and feed the appropriate commands to OpenOCD
+#
+case $1 in
+    "reset")
+        OPENOCD_CFG="init; reset; shutdown;"
+        ;;
+
+    "init")
+        OPENOCD_CFG="init; shutdown;"
+        ;;
+
+    "flash")
+        OPENOCD_CFG="program $FIRMWARE_IMAGE_FILE; shutdown;"
+        ;;
+
+    "ocd")
+        OPENOCD_CFG="init"
+        ;;
+
+    *)
+        echo "Usage: debug [reset|init|flash|ocd]"
+        exit 1
+        ;;
+esac
+
+
+TMP_FILE=$(mktemp)
+cat <<-EOF > $TMP_FILE
+add_script_search_dir $OPENOCD_SCRIPTS
+
+source [find interface/cmsis-dap.cfg]
+source [find target/$BOARD_TYPE.cfg]
+
+
+adapter speed 5000;
+$OPENOCD_CFG
+
+EOF
+
+echo "$OPENOCD_CMD -f $TMP_FILE"
+$OPENOCD_CMD -f $TMP_FILE

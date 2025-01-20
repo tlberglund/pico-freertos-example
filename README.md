@@ -21,15 +21,19 @@ Raspberry Pi also provides a nice VSCode extension that provides support for bui
 
 * Pico W ([datasheet](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf))
 * Pico 2 ([datasheet](https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf))
+* Pico 2W ([datasheet](https://datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf))
 
 The build is configurable via the `PICO_BOARD` variable in the CMake build (see Building below). Towards the top of `CMakeLists.txt`, you'll see these lines:
 
 ```CMake
 #set(PICO_BOARD pico_w CACHE STRING "Board type")
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+#set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
 ```
 
 Be sure to uncomment one and only one of those lines, depending on the kind of board you want to build for.
+
+NOTE: Pico 2W isn't supported in the `debug` script yet.
 
 ## Cloning
 
@@ -59,6 +63,10 @@ CMake is actually a system for describing a build, which it typically generates 
 
 ## That Debugging Life
 
+### USB Method
+
+If you haven't spent $10 on the debug module or don't want to solder pins onto your board or have some other reason known only to yourself, you can absolutely load code and see debug output with nothing more than a USB cable. Yes, it's a mini USB connector on the board. Stay angry about that.
+
 1. Plug the Pico board into a USB port on your computer using a USB Mini cable you found in the box of cables that you keep around in case you need them. _See, there's a reason you have those!_
 2. Wait, make sure you held down the BOOTSEL button on the Pico before you plugged it in. You'll need to do this every time before you load code into it. I don't like it any more than you do, but the sense of vindication you had when you found that cable makes it all worth it.
 3. Run the build (see above).
@@ -67,3 +75,16 @@ CMake is actually a system for describing a build, which it typically generates 
 6. The output of the `printf` function goes to a serial device you can monitor using `minicom`. On MacOS (and presumably Linux, but I haven't tried it), type `minicom -D /dev/tty.usb` and hit tab. If there's only one device with that name, that's your Pico's serial port. If there are multiple devices, well, you're writing firmware. Trial and error is your life now.
 
 Note that the USB serial device name will change randomly throughout your debug session, so don't expect the exact same command to work every time. You'll have to repeat the tab complete step occasionally. There's a one-second sleep on startup in the code to give you a tiny bit of time to do this after `picotool` finishes, so you can still see startup debug output. Feel free to increase the delay if it makes life easier.
+
+### On-Chip Debugger Method
+
+The [Raspberry Pi Debug Probe](https://www.raspberrypi.com/products/debug-probe/) is a little device, as cheap as it is tiny, that plugs into a USB port on your computer and provides an interface to the RP2040/RP2350 on-chip debugger. When I wore a younger man's clothes, you had to spend $3-$10k (maybe $2.6M in today's dollars) on a device called an in-circuit emulator to debug an embedded system. Now, for $10, you get almost all of that same functionality enabled by hardware debugging resources on the silicon itself. You can set breakpoints (up to four of them), step through code, inspect variables...the whole works. It's a wonderful time to be alive.
+
+The Pico SDK contains a tool called `openocd` (OCD stands for "on-chip debugger") to interface with this device. `openocd` uses a bunch of TCL scripts for configuration and is generally unpleasant. I've written a bash script called `debug` to make it less awful (but only a little). `debug` has four subcommands.
+
+* `debug reset` - Resets the processor and exits. You should run this after `debug flash` if you want your code to run.
+* `debug init` - Initializes the Debug Probe and the on-chip debugger. This is more of a sanity check; if the yellow light comes on on the Debug Probe after you run this, you've got a good connection.
+* `debug flash` - Writes the firmware image in the `build` directory to the board and exits. Note that this command does not reset the part; you'll need to run `debug reset` for that. There's a variable near the top of the `debug` script called `FIRMWARE_IMAGE_FILE` that contains the path to the image file. You'll need to change this if you change the name of the build output in `CMakeLists.txt`.
+* `debug ocd` - Initialize the Debug Probe and leave it running, ready for a connection from an actual debugger like VS Code (or [gdb](https://sourceware.org/gdb/) if you hate life). The VS Code debugger requires a bit of configuration that is unfortunately beyond the scope of this README. Email me at `tlberglund@gmail.com`, and I'll send you some JSON that VS Code will appreciate.
+
+
