@@ -56,6 +56,9 @@ case "$PICO_BOARD_VALUE" in
     pico2)
         BOARD_TYPE="rp2350"
         ;;
+    pico2_w)
+        BOARD_TYPE="rp2350"
+        ;;
     *)
         echo "Error: Unknown PICO_BOARD value '$PICO_BOARD_VALUE'."
         exit 1
